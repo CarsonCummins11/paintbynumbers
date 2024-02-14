@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Maya's paint by numbers maker</title>
+        <script src="https://www.lactame.com/lib/image-js/0.21.2/image.min.js"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css"
+        />
+        <script>
+            function addColor() {
+                let color = document.createElement("input");
+                color.type = "color";
+                color.value = "#000000";
+                document.getElementById("color-picker").appendChild(color);
+            }
+            function printImage() {
+                // Find the image element
+                var imgElement = document.getElementById("result");
+                if (!imgElement) {
+                    alert("Image not found!");
+                    return;
+                }
+
+                // Create a new window
+                var printWindow = window.open("", "_blank");
+
+                // Write the image HTML to the new window
+                printWindow.document.write(
+                    "<html><head><title>Print</title></head><body>"
+                );
+                printWindow.document.write(
+                    '<img src="' + imgElement.src + '" />'
+                );
+                printWindow.document.write("</body></html>");
+
+                // Close the document to finish loading the page
+                printWindow.document.close();
+
+                // Wait for the content to load in the new window, then call the print function
+                printWindow.onload = function () {
+                    printWindow.focus(); // Focus on the new window
+                    printWindow.print(); // Call the print function
+                    printWindow.close(); // Close the window after printing
+                };
+            }
+        </script>
+        <style>
+            input[type="file"] {
+                display: none;
+            }
+            .custom-file-upload {
+                border: 2px solid #ccc;
+                border-radius: 5px;
+                color: #5ba8ff;
+                display: flex;
+                padding: 6px 12px;
+                gap: 10px;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                width: min-content;
+                white-space: nowrap;
+            }
+            body {
+                font-family: "Poppins", sans-serif;
+            }
+            .image-preview {
+                min-width: 500px;
+                min-height: 500px;
+                padding: 10px;
+                border: 2px solid #ccc;
+                border-radius: 5px;
+                margin: 32px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1 style="margin: 32px">Maya's Paint by Numbers Maker</h1>
+        <div style="margin: 32px">
+            <div>
+                <h3>Pick your colors</h3>
+            </div>
+            <div style="display: flex">
+                <div id="color-picker">
+                    <input type="color" value="#000000" />
+                    <input type="color" value="#ffffff" />
+                    <input type="color" value="#ff0000" />
+                    <input type="color" value="#00ff00" />
+                    <input type="color" value="#0000ff" />
+                </div>
+                <button onclick="addColor()">
+                    <i style="width: 50px" class="iconoir-plus"></i>
+                </button>
+            </div>
+        </div>
+        <div style="margin: 32px">
+            <h3>Upload a photo for conversion</h3>
+            <label for="imageInput" class="custom-file-upload">
+                <i class="iconoir-upload-square"></i> Custom Upload
+            </label>
+            <input type="file" id="imageInput" accept="image/*" />
+        </div>
+        <div class="image-preview">
+            <div>
+                <h3>Finished Painting</h3>
+            </div>
+            <div>
+                <img width="500" id="preview" />
+            </div>
+        </div>
+        <div class="image-preview">
+            <div>
+                <h3>Paint by Numbers</h3>
+                <button onclick="printImage()">Print</button>
+            </div>
+            <div>
+                <img width="500" id="result" />
+            </div>
+        </div>
+    </body>
+    <script>
+        let COLORS = [
+            [0, 0, 0],
+            [255, 255, 255],
+            [255, 0, 0],
+            [0, 255, 0],
+            [0, 0, 255],
+        ];
+        document
+            .getElementById("imageInput")
+            .addEventListener("change", function (event) {
+                var file = event.target.files[0];
+
+                if (file) {
+                    var reader = new FileReader();
+
+                    reader.onload = function (e) {
+                        var dataUrl = e.target.result;
+                        //load COLORS array from inputs
+                        COLORS = Array.from(
+                            document.getElementById("color-picker").children
+                        ).map((x) => {
+                            return x.value
+                                .slice(1)
+                                .match(/.{1,2}/g)
+                                .map((x) => parseInt(x, 16));
+                        });
+                        console.log(COLORS);
+                        process(dataUrl);
+                    };
+
+                    reader.readAsDataURL(file);
+                }
+            });
+        function floodFillFrom(x1, y1, img, in_cluster) {
+            console.log(
+                `floodfilling from ${x1}, ${y1} of ${img.width}x${img.height} image`
+            );
+            let ret = [];
+            let stack = [[x1, y1]];
+            let visited = new Set();
+            let color = img.getPixelXY(x1, y1);
+            while (stack.length > 0) {
+                let [x, y] = stack.pop();
+                if (in_cluster[x * img.width + y] > 0) {
+                    continue;
+                }
+                if (x < 0 || x >= img.width || y < 0 || y >= img.height) {
+                    continue;
+                }
+                if (visited.has(`${x},${y}`)) {
+                    continue;
+                }
+                visited.add(`${x},${y}`);
+                let pixel = img.getPixelXY(x, y);
+                if (
+                    pixel[0] === color[0] &&
+                    pixel[1] === color[1] &&
+                    pixel[2] === color[2]
+                ) {
+                    ret.push([x, y]);
+                    stack.push([x + 1, y]);
+                    stack.push([x - 1, y]);
+                    stack.push([x, y + 1]);
+                    stack.push([x, y - 1]);
+                }
+            }
+            console.log(
+                `floodfill done with ${ret.length} pixels out of ${
+                    img.width * img.height
+                }`
+            );
+            return ret;
+        }
+        function clusterImage(img) {
+            let clusters = [];
+            let in_cluster = new Array(img.width * img.height).fill(0);
+            for (var i = 0; i < img.width; i++) {
+                for (var j = 0; j < img.height; j++) {
+                    if (in_cluster[i * img.width + j] == 0) {
+                        let cluster = floodFillFrom(i, j, img, in_cluster);
+                        let cluster_id = clusters.push(new Set(cluster));
+                        for (let [x, y] of cluster) {
+                            in_cluster[x * img.width + y] = cluster_id;
+                        }
+                    }
+                }
+            }
+            return [clusters, in_cluster];
+        }
+        async function process(imgData) {
+            console.log("blurring");
+            let image = (await IJS.Image.load(imgData)).convolution([
+                [1 / 273, 4 / 273, 7 / 273, 4 / 273, 1 / 273],
+                [4 / 273, 16 / 273, 26 / 273, 16 / 273, 4 / 273],
+                [7 / 273, 26 / 273, 41 / 273, 26 / 273, 7 / 273],
+                [4 / 273, 16 / 273, 26 / 273, 16 / 273, 4 / 273],
+                [1 / 273, 4 / 273, 7 / 273, 4 / 273, 1 / 273],
+            ]);
+            console.log("recoloring");
+            let newImage = document.createElement("canvas");
+            newImage.width = image.width;
+            newImage.height = image.height;
+            let ctx = newImage.getContext("2d");
+            for (var i = 0; i < image.width; i++) {
+                for (var j = 0; j < image.height; j++) {
+                    let pixel = image.getPixelXY(i, j);
+                    let r = pixel[0];
+                    let g = pixel[1];
+                    let b = pixel[2];
+
+                    let min_col_dist = 100000000;
+                    let min_col = [0, 0, 0];
+
+                    COLORS.forEach((col) => {
+                        let dist = Math.sqrt(
+                            (r - col[0]) ** 2 +
+                                (g - col[1]) ** 2 +
+                                (b - col[2]) ** 2
+                        );
+                        if (dist < min_col_dist) {
+                            min_col_dist = dist;
+                            min_col = col;
+                        }
+                    });
+
+                    ctx.fillStyle = `rgb(${min_col[0]}, ${min_col[1]}, ${min_col[2]})`;
+                    ctx.fillRect(i, j, 1, 1);
+                }
+            }
+            recolored_image = IJS.Image.fromCanvas(newImage);
+            document.getElementById("preview").src =
+                recolored_image.toDataURL();
+            console.log("clustering");
+            clusters = clusterImage(recolored_image);
+            in_cluster = clusters[1];
+            clusters = clusters[0];
+            console.log("outlining");
+            let finalImage = document.createElement("canvas");
+            finalImage.width = image.width;
+            finalImage.height = image.height;
+            ctxn = finalImage.getContext("2d");
+            var sofar = 0;
+            for (let cluster of clusters) {
+                sofar += 1;
+                if (cluster.size < 100) {
+                    continue;
+                }
+                console.log(
+                    `processing cluster ${sofar} of ${clusters.length}`
+                );
+                function isPointInCluster(x, y) {
+                    return in_cluster[x * image.width + y] == sofar;
+                }
+                function isInsideCluster(x, y) {
+                    return (
+                        isPointInCluster(x + 1, y) &&
+                        isPointInCluster(x - 1, y) &&
+                        isPointInCluster(x, y + 1) &&
+                        isPointInCluster(x, y - 1)
+                    );
+                }
+                for (let [x, y] of cluster) {
+                    color = [0, 0, 0]; //recolored_image.getPixelXY(x, y);
+                    if (!isInsideCluster(x, y)) {
+                        ctxn.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                        ctxn.fillRect(x, y, 1, 1);
+                    }
+                }
+                //find a 20x20 square in the cluster
+                let found = false;
+                for (let [x, y] of cluster) {
+                    if (x + 20 < image.width && y + 20 < image.height) {
+                        let isSquare = true;
+                        for (let i = 0; i < 20; i++) {
+                            for (let j = 0; j < 20; j++) {
+                                if (!isPointInCluster(x + i, y + j)) {
+                                    isSquare = false;
+                                }
+                            }
+                        }
+                        if (isSquare) {
+                            fillcolor = recolored_image.getPixelXY(x, y);
+                            let ind = 0;
+                            for (let col of COLORS) {
+                                if (
+                                    col[0] == fillcolor[0] &&
+                                    col[1] == fillcolor[1] &&
+                                    col[2] == fillcolor[2]
+                                ) {
+                                    fillcolor = col;
+                                    break;
+                                }
+                                ind += 1;
+                            }
+                            ctxn.fillStyle = `rgb(255,0,0)`;
+                            ctxn.fillText(ind, x + 5, y + 5);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
+                    xx = Array.from(cluster)[0][0];
+                    yy = Array.from(cluster)[0][1];
+                    fillcolor = recolored_image.getPixelXY(xx, yy);
+                    let ind = 0;
+                    for (let col of COLORS) {
+                        if (
+                            col[0] == fillcolor[0] &&
+                            col[1] == fillcolor[1] &&
+                            col[2] == fillcolor[2]
+                        ) {
+                            fillcolor = col;
+                            break;
+                        }
+                        ind += 1;
+                    }
+                    ctxn.fillStyle = `rgb(255,0,0)`;
+                    ctxn.fillText(ind, xx + 5, yy + 5);
+                }
+            }
+            //draw border around final image
+            ctxn.strokeStyle = "black";
+            ctxn.lineWidth = 2;
+            ctxn.strokeRect(0, 0, finalImage.width, finalImage.height);
+
+            document.getElementById("result").src =
+                IJS.Image.fromCanvas(finalImage).toDataURL();
+        }
+    </script>
+</html>
